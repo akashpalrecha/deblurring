@@ -1,6 +1,0 @@
-dataset_name: levin
-dataset_train_size: 16
-dataset_valid_size: 12
-exp_name: SimpleCNN_1_1_levin_making_progress
-init_lr: 0.001
-model_name: SimpleCNN_1_1

@@ -1,8 +1,0 @@
-dataset_name: levin
-dataset_train_size: 16
-dataset_valid_size: 12
-edsr_blocks: 2
-exp_name: simple_cnn_levin_test_check
-in_channels: 1
-init_lr: 0.001
-model_name: simple_cnn
