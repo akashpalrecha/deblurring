@@ -1,0 +1,6 @@
+dataset_name: levin
+dataset_train_size: 16
+dataset_valid_size: 12
+exp_name: simple_scaler_levin_
+init_lr: 0.001
+model_name: simple_scaler
