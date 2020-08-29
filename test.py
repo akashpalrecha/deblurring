@@ -9,32 +9,13 @@ import torchvision
 import mimetypes
 from PIL import Image
 from pdb import set_trace
+from main import models_dict, datasets_dict, stats_dict
 try:
     get_ipython().__class__.__name__
     from tqdm.notebook import tqdm
 except:
     from tqdm import tqdm
 
-models_dict = {"sample_model": SampleModel,
-               "simple_cnn": SimpleCNNModel}
-
-datasets_dict = {'levin':'sample_levin_dataset',
-                 'GOPRO': None,
-                 'lai': None}
-
-stats_dict    = {'levin': None,
-                 'GOPRO': None,
-                 'lai': None}
-
-def image_filter(path:str):
-    path = str(path)
-    ftype = mimetypes.guess_type(path)[0]
-    if type(ftype) is str:
-        return 'image' in ftype
-    elif ftype is None:
-        return False
-    else:
-        return False
 
 toTensor = torchvision.transforms.ToTensor()
 
@@ -91,19 +72,19 @@ if __name__ == '__main__':
         model = model.cuda()
     print("Successfully loaded model")
     
-    image_list = list(filter(image_filter, in_folder.iterdir()))
+    image_list = get_image_files(in_folder)
     
     for impath in tqdm(image_list):
         try:
             im = read_image(impath, args['use_gpu'])
             out = model.predict_image(im, normalized=False)
             out = (out.detach().cpu().numpy() * 255).astype(np.uint8)
-            # set_trace()
             if out.shape[2] == 1:
                 out = Image.fromarray(out[:, :, 0], 'L')
             else:
                 out = Image.fromarray(out)
-            out.save(str(out_folder/impath.name))
+            out_file = get_full_test_out_path(out_folder, impath, in_folder, makedirs=True)
+            out.save(str(out_file))
         except:
             print(f"Error when working with : {str(impath)}")
             raise Exception("testing aborted")

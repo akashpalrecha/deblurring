@@ -12,6 +12,9 @@ from torchvision import transforms
 import kornia
 import kornia.augmentation as K
 import pytorch_lightning as pl
+import os
+import mimetypes
+
 try:
     get_ipython().__class__.__name__
     from tqdm.notebook import tqdm
@@ -129,12 +132,13 @@ class DeblurDataModule(pl.LightningDataModule):
             
     def get_dataset_files(self, train:Path, test:Path=None):
         train = Path(train)
-        files = train.rglob("*.png")
+        files = get_image_files(train)
         if test is not None:
             test = Path(test)
-            files = itertools.chain(test.rglob("*.png"))
+            test_files = get_image_files(test)
+            files = itertools.chain(files, test_files)
         
-        files = list(files)
+        files       = list(files)
         train_files =        list(filter(lambda x: "train" in str(x), files))
         test_files  =        list(filter(lambda x: "test"  in str(x), files))
         train_x     = sorted(list(filter(lambda x: "blur"  in str(x), train_files)))
@@ -185,8 +189,7 @@ class DeblurDataModule(pl.LightningDataModule):
                 if return_torch_type: image = b[j].detach().cpu()
                 else: image = b[j].detach().cpu().numpy().transpose(1,2,0)
                 images[i].append(image)
-        return images
-            
+        return images            
         
     def show_batch(self, n=2):
         """ `n` is the number of batches to view """
@@ -250,3 +253,33 @@ def make_listy(x):
         return [x]
     else: 
         return x
+    
+    
+def get_full_test_out_path(test_out:Path, test_file:Path, test_folder:Path=None, makedirs=True):
+    # set_trace()
+    test_out, test_file = Path(test_out), Path(test_file)
+    str_path = test_file.as_posix()
+    if test_folder is not None:
+        test_folder = Path(test_folder)
+        tail  = test_file.relative_to(test_folder)
+    elif 'blur' in str_path:
+        tail = str_path[str_path.find("blur") + len("blur")+1:]
+    else:
+        tail  = test_file.name
+    out = test_out/tail
+    if makedirs: os.makedirs(out.parent.as_posix(), exist_ok=True)
+    
+    return out
+
+def image_filter(path:str):
+    "Returns true if `path` has the extension of an image file"
+    ftype = mimetypes.guess_type(str(path))[0]
+    if type(ftype) is str: 
+        return 'image' in ftype
+    else: return False
+    # elif ftype is None: return False
+    
+def get_image_files(path:Path):
+    "Returns iterator over all images found in `path` recursively"
+    files = filter(image_filter, Path(path).rglob("*.*"))
+    return files

@@ -87,28 +87,25 @@ class DeblurModelBase(pl.LightningModule):
         # Saving predictions as images
         offset = batch_idx * self.data_module.valid_batch_size
         # As test/valid dataloaders are not shuffled
-        fnames = self.data_module.valid_files[offset : offset + out.shape[0]]
-        fnames = [Path(f[0]).name for f in fnames]
+        fpaths = self.data_module.valid_files[offset : offset + out.shape[0]]
+        fpaths = [get_full_test_out_path(self.test_out, path[0], makedirs=True) for path in fpaths]
         images = self.data_module.decode(out)[0]
-        # set_trace()
         
-        for fname, image in zip(fnames, images):
+        for fpath, image in zip(fpaths, images):
             image = (image * 255).clip(0, 255).astype(np.uint8)
             if image.shape[2] == 1:
-                Image.fromarray(image[:,:,0], 'L').save(os.path.join(self.test_out, fname))
+                Image.fromarray(image[:,:,0], 'L').save(fpath.as_posix())
             else:
-                Image.fromarray(image).save(os.path.join(self.test_out, fname))
-            # plt.imsave(os.path.join(self.test_out, fname), image, cmap='gray')
-
+                Image.fromarray(image).save(fpath.as_posix())
         return result
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
     
-    
     def predict_image(self, x:torch.Tensor, normalized=False):
         self.eval()
-        x = torch.tensor(x)
+        if type(x) != torch.Tensor:
+            x = torch.tensor(x)
         if len(x.shape) == 3:
             if x.shape[2] in (1, 3): # Channel dimension is third
                 x = x.permute(2, 0, 1)
@@ -125,7 +122,8 @@ class DeblurModelBase(pl.LightningModule):
             
     def predict_batch(self, x:torch.Tensor, normalized=False):
         self.eval()
-        x = torch.tensor(x)
+        if type(x) != torch.Tensor:
+           x = torch.tensor(x)
         if not normalized:
             x = self.data_module.normalize_func(x)
         return self.data_module.denormalize_func(self(x)).clamp(0.0, 1.0)
@@ -163,6 +161,7 @@ class EDSRResBlock(nn.Module):
         
     def forward(self, x):
         return self.conv2(self.relu1(self.conv1(x))) + x
+
     
 class SimpleCNNModel(DeblurModelBase):
     def __init__(self, data_module:DeblurDataModule=None, args:dict={}):
