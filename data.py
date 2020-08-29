@@ -30,8 +30,8 @@ class DeblurDataset(Dataset):
             self.normalize  = kornia.augmentation.Normalize(*self.stats)
             self.denormaize = kornia.augmentation.Denormalize(*self.stats)
         else:
-            self.normalize  = lambda x: x
-            self.denormaize = lambda x: x
+            self.normalize  = Noop()
+            self.denormaize = Noop()
         # set_trace()
         if size == "auto": # Do not resize for test images
             self.size = size
@@ -90,8 +90,8 @@ class DeblurDataModule(pl.LightningDataModule):
         self.stats = stats
         
         # Adding Transform for Normalizing Data
+        tmp_ds = DeblurDataset(self.train_files, self.size)
         if self.stats is None:
-            tmp_ds = DeblurDataset(self.train_files, self.size)
             means = torch.zeros_like(tmp_ds[0][0].mean((1,2)))
             stds  = torch.zeros_like(tmp_ds[0][0].std((1,2)))
             
@@ -106,7 +106,9 @@ class DeblurDataModule(pl.LightningDataModule):
             stds  /= factor * len(tmp_ds)
             self.stats = (means, stds)
         elif self.stats == "auto":
-            self.stats = None
+            means = torch.zeros_like(tmp_ds[0][0].mean((1,2))).float()
+            stds  = torch.ones_like(tmp_ds[0][0].std((1,2))).float()
+            self.stats = (means, stats)
         else: pass
         self.setup()
         self.normalize_func   = self.train_ds.normalize
@@ -288,3 +290,8 @@ def get_image_files(path:Path):
     "Returns iterator over all images found in `path` recursively"
     files = filter(image_filter, Path(path).rglob("*.*"))
     return files
+
+
+class Noop:
+    """ Object form of a function that does nothing """
+    def __call__(self, x): return x
