@@ -39,9 +39,15 @@ if __name__ == '__main__':
                         help="Folder to output predictions to")
     parser.add_argument("--experiment_folder", type=str, required=True,
                         help="Folder containing the saved model to use")
+    parser.add_argument("--prefix", type="str", default="",
+                        help="filter only filenames that contain `prefix` anywhere in their path")
     parser.add_argument("--use_gpu", action='store_true')
     
+    
     args = vars(parser.parse_args())
+    
+    if torch.cuda.is_available():
+        args['use_gpu'] = True
     
     in_folder   = Path(args['input_folder'])
     saved_model = Path(args['experiment_folder'])
