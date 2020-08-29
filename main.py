@@ -5,13 +5,16 @@ from typing import Callable
 from data import *
 from pytorch_lightning.callbacks import ModelCheckpoint
 import os
+from other_models import EDSR_Model
 
 models_dict = {"sample_model": SampleModel,
-               "simple_cnn": SimpleCNNModel}
+               "simple_cnn": SimpleCNNModel,
+               "edsr": EDSR_Model}
 
 datasets_dict = {'levin':'sample_levin_dataset',
                  'GOPRO': None,
                  'lai': None}
+
 stats_dict    = {'levin': None,
                  'GOPRO': None,
                  'lai': None}
@@ -43,15 +46,24 @@ def main(args):
     model_fn:Callable = models_dict[dargs['model_name']]
     model:DeblurModelBase = model_fn(data_module, args=dargs)
     
+    
     # Preparing logger and logging hyperparameters and one batch of data
     logger = pl.loggers.TensorBoardLogger(save_dir='experiments', 
-                                          name=model.hparams['exp_name'])
+                                          name=model.hparams['exp_name'], log_graph=False)
+    print(f"Experiment will be saved in: {logger.log_dir}")
+    
     logger.log_hyperparams(params=model.hparams,
                            metrics={"PSNR":0.0, "SSIM": 0.0, "val_loss":0.0,
                                     "epoch_test_PSNR":0.0, "epoch_test_SSIM":0.0})
     figure = data_module.show_batch(4)
     plt.savefig(os.path.join(logger.log_dir, 'one_batch.png'))
     logger.experiment.add_figure(tag=f"{4} batches of training data", figure=figure, global_step=0)
+    
+    # Saving information needed to reinitiate the model
+    model_info = {'model_name': dargs['model_name'],
+                  'data_module': data_module,
+                  'dargs': dargs}
+    torch.save(model_info, os.path.join(logger.log_dir, 'model_info.pt'))
     
     checkpoint_callback = ModelCheckpoint(filepath=os.path.join(logger.log_dir, 'checkpoints', 'best-{epoch}-{val_loss:.2f}.ckpt'))
     trainer = pl.Trainer.from_argparse_args(args, logger=logger, checkpoint_callback=checkpoint_callback)
@@ -67,6 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--valid_batch_size', type=int, default=0)
     parser.add_argument('--val_pct', type=float, default=0.2)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--size', nargs="+", type=int, default=0)
     parser.add_argument('--tag', type=str, default="")
     parser = pl.Trainer.add_argparse_args(parser)

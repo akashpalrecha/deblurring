@@ -10,22 +10,23 @@ import os
 from pdb import set_trace
 
 class DeblurModelBase(pl.LightningModule):
-    def __init__(self, data_module:DeblurDataModule, lr:float=0.001, args:dict={}):
+    def __init__(self, data_module:DeblurDataModule=None, args:dict={}):
         super(DeblurModelBase, self).__init__()
         self.data_module  = data_module
-        self.transforms   = self.data_module.transforms
-        self.v_transforms = self.data_module.valid_transforms
+        self.transforms   = data_module.transforms if data_module else []
+        self.v_transforms = data_module.valid_transforms if data_module else []
         self.loss_func    = torch.nn.MSELoss()
         self.metrics      = [(psnr, 'PSNR'), (SSIM(kernel_size=(5,5)), 'SSIM')]
-        self.lr           = lr
+        self.lr           = args['lr']
         self.model_name   = "Model"
         self.test_out     = None # Folder for testing results
         self.hparams      = {}
         self.hparams['model_name']         = self.model_name
-        self.hparams['dataset_name']       = data_module.name
-        self.hparams['dataset_train_size'] = len(data_module.train_files)
-        self.hparams['dataset_valid_size'] = len(data_module.valid_files)
-        self.hparams['exp_name']           = self.model_name + '_' + data_module.name + '_' + args.get('tag', '')
+        self.hparams['dataset_name']       = data_module.name if data_module else "Data"
+        self.hparams['dataset_train_size'] = len(data_module.train_files) if data_module else 0
+        self.hparams['dataset_valid_size'] = len(data_module.valid_files) if data_module else 0
+        self.hparams['exp_name']           = self.model_name + '_' + (data_module.name if data_module else "") \
+                                             + '_' + args.get('tag', '')
         self.hparams['init_lr']            = self.lr
         
     def training_step(self, batch, batch_idx):
@@ -104,6 +105,31 @@ class DeblurModelBase(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
     
+    
+    def predict_image(self, x:torch.Tensor, normalized=False):
+        self.eval()
+        x = torch.tensor(x)
+        if len(x.shape) == 3:
+            if x.shape[2] in (1, 3): # Channel dimension is third
+                x = x.permute(2, 0, 1)
+            x.unsqueeze_(0)
+        else: pass
+        if x.shape[1] != self.data_module.dims[0]:
+            if x.shape[1] == 1:
+                x = torch.stack([x,x,x], dim=1)
+            elif x.shape[1] == 3:
+                raise Exception("Input is 3 channel image while model was trained for 1 channel images")
+        pred = self.predict_batch(x, normalized).squeeze(0)
+        # set_trace()
+        return pred.permute(1, 2, 0)
+            
+    def predict_batch(self, x:torch.Tensor, normalized=False):
+        self.eval()
+        x = torch.tensor(x)
+        if not normalized:
+            x = self.data_module.normalize_func(x)
+        return self.data_module.denormalize_func(self(x)).clamp(0.0, 1.0)
+        
     @staticmethod
     def add_model_specific_args(parent_parser):
         # parser = ArgumentParser(parents=[parent_parser], add_help=False)
@@ -114,12 +140,13 @@ class DeblurModelBase(pl.LightningModule):
 
 
 class SampleModel(DeblurModelBase):
-    def __init__(self, data_module:DeblurDataModule, lr:float=0.001, args:dict={}):
-        super(SampleModel, self).__init__(data_module, lr, args)
+    def __init__(self, data_module:DeblurDataModule=None, args:dict={}):
+        super(SampleModel, self).__init__(data_module, args)
         self.a = torch.nn.Parameter(data=torch.tensor(1.0))
         self.model_name = "simple_scaler"
         self.hparams['model_name']   = self.model_name
-        self.hparams['exp_name']     = self.model_name + '_' + data_module.name + '_' + args.get('tag', '')
+        self.hparams['exp_name']     = self.model_name + '_' + (data_module.name if data_module else "") \
+                                       + '_' + args.get('tag', '')
     
     def forward(self, x):
         return self.a * x
@@ -138,8 +165,8 @@ class EDSRResBlock(nn.Module):
         return self.conv2(self.relu1(self.conv1(x))) + x
     
 class SimpleCNNModel(DeblurModelBase):
-    def __init__(self, data_module:DeblurDataModule, lr:float=0.001, args:dict={}):
-        super(SimpleCNNModel, self).__init__(data_module, lr, args)
+    def __init__(self, data_module:DeblurDataModule=None, args:dict={}):
+        super(SimpleCNNModel, self).__init__(data_module, args)
         in_ch = args['in_channels']
         num_edsr_blocks = args['num_edsr_blocks']
         self.conv1 = nn.Conv2d(in_channels=in_ch, out_channels=16, kernel_size=3, stride=1, padding=1)
@@ -153,7 +180,8 @@ class SimpleCNNModel(DeblurModelBase):
         
         self.model_name = f"simple_cnn"
         self.hparams['model_name']   = self.model_name
-        self.hparams['exp_name']     = self.model_name + '_' + data_module.name + '_' + args.get('tag', '')
+        self.hparams['exp_name']     = self.model_name + '_' + (data_module.name if data_module else "") \
+                                       + '_' + args.get('tag', '')
         self.hparams['in_channels']  = in_ch
         self.hparams['edsr_blocks']  = num_edsr_blocks
         
