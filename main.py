@@ -29,6 +29,8 @@ def main(args):
                   'stats': stats_dict.get(dargs['dataset'], None),
                   'valid_batch_size': dargs['valid_batch_size']}
     name = dargs['dataset']
+    if name == dataset_info:
+        name = Path(name).name
     if dargs['no_calc_stats']: other_args['stats'] = "auto"
     if len(dargs['use_stats']) > 0:
         stats = stats_dict.get('use_stats', None)
