@@ -72,7 +72,7 @@ if __name__ == '__main__':
         model = model.cuda()
     print("Successfully loaded model")
     
-    image_list = get_image_files(in_folder)
+    image_list = list(get_image_files(in_folder))
     
     for impath in tqdm(image_list):
         try:
