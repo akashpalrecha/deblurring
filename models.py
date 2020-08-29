@@ -27,6 +27,7 @@ class DeblurModelBase(pl.LightningModule):
         self.hparams['dataset_valid_size'] = len(data_module.valid_files) if data_module else 0
         self.hparams['exp_name']           = self.model_name + '_' + (data_module.name if data_module else "") \
                                              + '_' + args.get('tag', '')
+        self.hparams['stats']              = self.data_module.stats
         self.hparams['init_lr']            = self.lr
         
     def training_step(self, batch, batch_idx):

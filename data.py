@@ -27,9 +27,11 @@ class DeblurDataset(Dataset):
         self.toTensor = transforms.ToTensor()
         self.stats = stats
         if self.stats is not None:
-            self.normalize = kornia.augmentation.Normalize(*self.stats)
+            self.normalize  = kornia.augmentation.Normalize(*self.stats)
+            self.denormaize = kornia.augmentation.Denormalize(*self.stats)
         else:
-            self.normalize = lambda x: x
+            self.normalize  = lambda x: x
+            self.denormaize = lambda x: x
         # set_trace()
         if size == "auto": # Do not resize for test images
             self.size = size
@@ -82,30 +84,33 @@ class DeblurDataModule(pl.LightningDataModule):
             # in case a few random images have slightly different sizes
             width, height = Image.open(str(self.train_files[0][0])).size
             size = (height, width)
-        self.size = size
-        self.transforms = make_listy(transforms) if transforms is not None else self.get_transforms()[0]
+        self.transforms       = make_listy(transforms) if transforms is not None else self.get_transforms()[0]
         self.valid_transforms = self.get_transforms()[1]
-        self.stats      = stats
+        self.size  = size
+        self.stats = stats
         
         # Adding Transform for Normalizing Data
         if self.stats is None:
-            tmp_ds = DeblurDataset(self.train_files)
+            tmp_ds = DeblurDataset(self.train_files, self.size)
             means = torch.zeros_like(tmp_ds[0][0].mean((1,2)))
             stds  = torch.zeros_like(tmp_ds[0][0].std((1,2)))
             
             factor = 0.5
             print(f"Calculating dataset stats with a {int(factor * 100)}% random subset of training data")
             for i in tqdm(torch.randint(0, len(tmp_ds), (int(factor*len(tmp_ds)),))):
-                means += tmp_ds[i][0].mean((1,2))
-                stds  += tmp_ds[i][0].std((1,2))
+                im = tmp_ds[i][0]
+                means += im.mean((1,2))
+                stds  += im.std((1,2))
                 
             means /= factor * len(tmp_ds)
             stds  /= factor * len(tmp_ds)
             self.stats = (means, stds)
-            
-        self.normalize_func   = kornia.augmentation.Normalize(*self.stats)
-        self.denormalize_func = kornia.augmentation.Denormalize(*self.stats)
+        elif self.stats == "auto":
+            self.stats = None
+        else: pass
         self.setup()
+        self.normalize_func   = self.train_ds.normalize
+        self.denormalize_func = self.train_ds.denormaize
         
     def prepare_data(self):
         pass

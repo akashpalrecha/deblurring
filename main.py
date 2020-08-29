@@ -29,6 +29,11 @@ def main(args):
                   'stats': stats_dict.get(dargs['dataset'], None),
                   'valid_batch_size': dargs['valid_batch_size']}
     name = dargs['dataset']
+    if dargs['no_calc_stats']: other_args['stats'] = "auto"
+    if len(dargs['use_stats']) > 0:
+        stats = stats_dict.get('use_stats', None)
+        if stats is not None:
+            other_args['stats'] = stats
     if type(dataset_info) == str:
         data_module = DeblurDataModule(dataset_info, name=name, **other_args)
     elif type(dataset_info) == list:
@@ -82,6 +87,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--size', nargs="+", type=int, default=0)
     parser.add_argument('--tag', type=str, default="")
+    parser.add_argument('--no_calc_stats', action='store_true', default=False)
+    parser.add_argument('--use_stats', type=str, default="")
     parser = pl.Trainer.add_argparse_args(parser)
 
     temp_args, _ = parser.parse_known_args()
