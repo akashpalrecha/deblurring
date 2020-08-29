@@ -50,6 +50,7 @@ def main(args):
     print(f"Loaded dataset with {len(data_module.train_files)} training images and \
           {len(data_module.valid_files)} validation/testing images.")
 
+    
     model_fn:Callable = models_dict[dargs['model_name']]
     model:DeblurModelBase = model_fn(data_module, args=dargs)
     

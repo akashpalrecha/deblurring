@@ -108,8 +108,9 @@ class DeblurDataModule(pl.LightningDataModule):
         elif self.stats == "auto":
             means = torch.zeros_like(tmp_ds[0][0].mean((1,2))).float()
             stds  = torch.ones_like(tmp_ds[0][0].std((1,2))).float()
-            self.stats = (means, stats)
+            self.stats = (means, stds)
         else: pass
+        
         self.setup()
         self.normalize_func   = self.train_ds.normalize
         self.denormalize_func = self.train_ds.denormaize
