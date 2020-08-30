@@ -73,6 +73,13 @@ def main(args):
                   'dargs': dargs}
     torch.save(model_info, os.path.join(logger.log_dir, 'model_info.pt'))
     
+    print(f"\nModel Hyperparameters: {model.hparams}\n")
+    
+    if torch.cuda.is_available():
+        if dargs['gpus'] == 0 or dargs['gpus'] is None:
+            dargs['gpus'] = 1
+            print("\n---- Using available GPU by default ----\n")
+    
     checkpoint_callback = ModelCheckpoint(filepath=os.path.join(logger.log_dir, 'checkpoints', 'best-{epoch}-{val_loss:.2f}.ckpt'))
     trainer = pl.Trainer.from_argparse_args(args, logger=logger, checkpoint_callback=checkpoint_callback)
     
