@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument("--experiment_folder", type=str, required=True,
                         help="Folder containing the saved model to use")
     parser.add_argument("--prefix", type=str, default="",
-                        help="filter only filenames that contain `prefix` anywhere in their path")
+                        help="filter only files contained in `prefix` folder at any level in their path")
     parser.add_argument("--use_gpu", action='store_true', default=False)
     
     
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     
     image_list = get_image_files(in_folder)
     if len(args['prefix']) > 0:
-        image_list = filter(lambda x: args['prefix'] in str(x), image_list)
+        image_list = filter(lambda x: args['prefix'] in str(x).split('/'), image_list)
     
     image_list = list(image_list)
     

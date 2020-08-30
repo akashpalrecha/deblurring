@@ -147,12 +147,12 @@ class DeblurDataModule(pl.LightningDataModule):
             files = itertools.chain(files, test_files)
         
         files       = list(files)
-        train_files =        list(filter(lambda x: "train" in str(x), files))
-        test_files  =        list(filter(lambda x: "test"  in str(x), files))
-        train_x     = sorted(list(filter(lambda x: "blur"  in str(x), train_files)))
-        train_y     = sorted(list(filter(lambda x: "sharp" in str(x), train_files)))
-        test_x      = sorted(list(filter(lambda x: "blur"  in str(x), test_files)))
-        test_y      = sorted(list(filter(lambda x: "sharp" in str(x), test_files)))
+        train_files =        list(filter(lambda x: "train" in x.as_posix().split('/'), files))
+        test_files  =        list(filter(lambda x: "test"  in x.as_posix().split('/'), files))
+        train_x     = sorted(list(filter(lambda x: "blur"  in x.as_posix().split('/'), train_files)))
+        train_y     = sorted(list(filter(lambda x: "sharp" in x.as_posix().split('/'), train_files)))
+        test_x      = sorted(list(filter(lambda x: "blur"  in x.as_posix().split('/'), test_files)))
+        test_y      = sorted(list(filter(lambda x: "sharp" in x.as_posix().split('/'), test_files)))
         
         if len(test_x) == 0 and len(test_y) == 0:
             # transfer self.val_pct fraction of samples from train to test data
