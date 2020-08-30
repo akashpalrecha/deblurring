@@ -24,7 +24,7 @@ class EDSR_Model(DeblurModelBase):
     
     @staticmethod
     def add_model_specific_args(parent_parser):
-        parent_parser = super().add_model_specific_args(parent_parser)
+        parent_parser = DeblurModelBase.add_model_specific_args(parent_parser)
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--n_resblocks', type=int, default=32)
         parser.add_argument('--n_feats', type=int, default=256)

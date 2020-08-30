@@ -73,7 +73,7 @@ def main(args):
                   'dargs': dargs}
     torch.save(model_info, os.path.join(logger.log_dir, 'model_info.pt'))
     
-    print(f"\nModel Hyperparameters: {model.hparams}\n")
+    print(f"\nModel Hyperparameters:\n{model.hparams}\n")
     
     if torch.cuda.is_available():
         if dargs['gpus'] == 0 or dargs['gpus'] is None:

@@ -28,7 +28,7 @@ class DeblurModelBase(pl.LightningModule):
         self.hparams['dataset_valid_size']      = len(data_module.valid_files) if data_module else 0
         self.hparams['exp_name']                = self.model_name + '_' + (data_module.name if data_module else "") \
                                                   + '_' + args.get('tag', '')
-        self.hparams['stats']                   = self.data_module.stats
+        self.hparams['stats']                   = repr(self.data_module.stats)
         self.hparams['init_lr']                 = self.lr
         self.hparams['lr_decay_factor']         = args['lr_decay_factor']
         self.hparams['lr_decay_every_n_epochs'] = args['lr_decay_every_n_epochs']
@@ -136,7 +136,7 @@ class DeblurModelBase(pl.LightningModule):
         else:
             optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.hparams['lr_decay_every_n_epochs'],
-                                                        gamma=self.hparams['lr_decay_factor'], verbose=True)
+                                                        gamma=self.hparams['lr_decay_factor'])
             return [optimizer], [scheduler]
             
     
@@ -205,7 +205,7 @@ class SimpleCNNModel(DeblurModelBase):
     
     @staticmethod
     def add_model_specific_args(parent_parser):
-        parent_parser = super().add_model_specific_args(parent_parser)
+        parent_parser = DeblurModelBase.add_model_specific_args(parent_parser)
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--in_channels', type=int, default=3)
         parser.add_argument('--num_edsr_blocks', type=int, default=1)
