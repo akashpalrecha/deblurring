@@ -16,7 +16,7 @@ datasets_dict = {'levin':'sample_levin_dataset',
                  'lai': None}
 
 stats_dict    = {'levin': None,
-                 'GOPRO': None,
+                 'GOPRO': (torch.tensor([0.4409, 0.4314, 0.4245]), torch.tensor([0.2183, 0.2150, 0.2178])),
                  'lai': None}
 
 def main(args):
@@ -33,7 +33,7 @@ def main(args):
         name = Path(name).name
     if dargs['no_calc_stats']: other_args['stats'] = "auto"
     if len(dargs['use_stats']) > 0:
-        stats = stats_dict.get('use_stats', None)
+        stats = stats_dict.get(dargs['use_stats'], None)
         if stats is not None:
             other_args['stats'] = stats
     if type(dataset_info) == str:
@@ -75,10 +75,10 @@ def main(args):
     
     print(f"\nModel Hyperparameters:\n{model.hparams}\n")
     
-    if torch.cuda.is_available():
-        if dargs['gpus'] == 0 or dargs['gpus'] is None:
-            dargs['gpus'] = 1
-            print("\n---- Using available GPU by default ----\n")
+    # Use GPU by default if available
+    if torch.cuda.is_available() and args.gpus is None:
+        args.gpus = 1
+        print("\n---- Using available GPU by default ----\n")
     
     checkpoint_callback = ModelCheckpoint(filepath=os.path.join(logger.log_dir, 'checkpoints', 'best-{epoch}-{val_loss:.2f}.ckpt'))
     trainer = pl.Trainer.from_argparse_args(args, logger=logger, checkpoint_callback=checkpoint_callback)
