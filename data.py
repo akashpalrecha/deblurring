@@ -96,7 +96,7 @@ class DeblurDataModule(pl.LightningDataModule):
             stds  = torch.zeros_like(tmp_ds[0][0].std((1,2)))
             
             factor = 0.5
-            print(f"Calculating dataset stats with a {int(factor * 100)}% random subset of training data")
+            print(f"Calculating dataset stats with a {int(factor * 100)}% subset of training data")
             for i in tqdm(torch.randint(0, len(tmp_ds), (int(factor*len(tmp_ds)),))):
                 im = tmp_ds[i][0]
                 means += im.mean((1,2))
