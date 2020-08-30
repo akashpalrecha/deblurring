@@ -17,18 +17,21 @@ class DeblurModelBase(pl.LightningModule):
         self.v_transforms = data_module.valid_transforms if data_module else []
         self.loss_func    = torch.nn.MSELoss()
         self.metrics      = [(psnr, 'PSNR'), (SSIM(kernel_size=(5,5)), 'SSIM')]
+        self.args         = args
         self.lr           = args['lr']
         self.model_name   = "Model"
         self.test_out     = None # Folder for testing results
         self.hparams      = {}
-        self.hparams['model_name']         = self.model_name
-        self.hparams['dataset_name']       = data_module.name if data_module else "Data"
-        self.hparams['dataset_train_size'] = len(data_module.train_files) if data_module else 0
-        self.hparams['dataset_valid_size'] = len(data_module.valid_files) if data_module else 0
-        self.hparams['exp_name']           = self.model_name + '_' + (data_module.name if data_module else "") \
-                                             + '_' + args.get('tag', '')
-        self.hparams['stats']              = self.data_module.stats
-        self.hparams['init_lr']            = self.lr
+        self.hparams['model_name']              = self.model_name
+        self.hparams['dataset_name']            = data_module.name if data_module else "Data"
+        self.hparams['dataset_train_size']      = len(data_module.train_files) if data_module else 0
+        self.hparams['dataset_valid_size']      = len(data_module.valid_files) if data_module else 0
+        self.hparams['exp_name']                = self.model_name + '_' + (data_module.name if data_module else "") \
+                                                  + '_' + args.get('tag', '')
+        self.hparams['stats']                   = self.data_module.stats
+        self.hparams['init_lr']                 = self.lr
+        self.hparams['lr_decay_factor']         = args['lr_decay_factor']
+        self.hparams['lr_decay_every_n_epochs'] = args['lr_decay_every_n_epochs']
         
     def training_step(self, batch, batch_idx):
         x, y   = augment_image_pair(batch, self.transforms)
@@ -100,8 +103,6 @@ class DeblurModelBase(pl.LightningModule):
                 Image.fromarray(image).save(fpath.as_posix())
         return result
     
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
     
     def predict_image(self, x:torch.Tensor, normalized=False):
         self.eval()
@@ -129,10 +130,22 @@ class DeblurModelBase(pl.LightningModule):
             x = self.data_module.normalize_func(x)
         return self.data_module.denormalize_func(self(x)).clamp(0.0, 1.0)
         
+    def configure_optimizers(self):
+        if self.hparams['lr_decay_every_n_epochs'] == 0 or self.hparams['lr_decay_factor'] == 1.0:
+            return torch.optim.Adam(self.parameters(), lr=self.lr)
+        else:
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.hparams['lr_decay_every_n_epochs'],
+                                                        gamma=self.hparams['lr_decay_factor'], verbose=True)
+            return [optimizer], [scheduler]
+            
+    
     @staticmethod
     def add_model_specific_args(parent_parser):
-        # parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        return parent_parser
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        parser.add_argument('--lr_decay_every_n_epochs', type=int, default=0)
+        parser.add_argument('--lr_decay_factor', type=float, default=1.0)
+        return parser
     
     def forward(self, x):
         raise NotImplementedError
@@ -192,6 +205,7 @@ class SimpleCNNModel(DeblurModelBase):
     
     @staticmethod
     def add_model_specific_args(parent_parser):
+        parent_parser = super().add_model_specific_args(parent_parser)
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--in_channels', type=int, default=3)
         parser.add_argument('--num_edsr_blocks', type=int, default=1)
