@@ -239,20 +239,19 @@ class DeblurDataModule(pl.LightningDataModule):
 
 def augment_image_pair(items:list, transforms:list):
     """ 
-    Augments each batch items with the same random seed without
+    Augments each batch of items with the same random seed without
     disturbing the global seed
     If transforms is empty, returns items unchanged.
+    Items can have any number of batches
     """
     transforms = make_listy(transforms)
     items = make_listy(items)
     seed = torch.randint(0, 100000, (1,))
     with torch.random.fork_rng():
-        for tfm in transforms:
+        for i in range(len(items)):
             torch.manual_seed(seed)
-            items[0] = tfm(items[0])
-            torch.manual_seed(seed)
-            items[1] = tfm(items[1])
-            seed = torch.randint(0, 100, (1,))
+            for tfm in transforms:
+                items[i] = tfm(items[i])
     return items
 
 

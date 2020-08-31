@@ -6,6 +6,7 @@ from data import *
 from pytorch_lightning.callbacks import ModelCheckpoint
 import os
 from other_models import EDSR_Model
+import gc
 
 models_dict = {"sample_model": SampleModel,
                "simple_cnn": SimpleCNNModel,
@@ -82,6 +83,8 @@ def main(args):
     
     checkpoint_callback = ModelCheckpoint(filepath=os.path.join(logger.log_dir, 'checkpoints', 'best-{epoch}-{val_loss:.2f}.ckpt'))
     trainer = pl.Trainer.from_argparse_args(args, logger=logger, checkpoint_callback=checkpoint_callback)
+    
+    gc.collect()
     
     trainer.fit(model, datamodule=data_module)
     trainer.test(model=model, datamodule=data_module)
