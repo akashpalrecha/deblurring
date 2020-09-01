@@ -58,7 +58,7 @@ class DeblurDataset(Dataset):
 
 class DeblurDataModule(pl.LightningDataModule):
     def __init__(self, train:Path, test:Path=None, batch_size=1, valid_batch_size=0, transforms=None, stats=None, name='GOPRO', 
-                 size=0, crop_size=(360, 640), train_files=None, valid_files=None, val_pct=0.2):
+                 size=0, crop_size=0, train_files=None, valid_files=None, val_pct=0.2):
         super(DeblurDataModule, self).__init__()
         self.train      = train
         self.test       = test
@@ -84,7 +84,7 @@ class DeblurDataModule(pl.LightningDataModule):
             width, height = Image.open(str(self.train_files[0][0])).size
             size = (height, width)
         self.size  = size
-        
+        crop_size = size if crop_size == 0 else crop_size
         try:
             _ = len(crop_size) == 2
         except:
@@ -128,11 +128,12 @@ class DeblurDataModule(pl.LightningDataModule):
         if stage == 'fit' or stage is None:
             self.train_ds = DeblurDataset(self.train_files, self.size, self.stats)
             self.valid_ds = DeblurDataset(self.valid_files, self.size, self.stats)
-            self.dims = self.train_ds[0][0].shape
+            self.dims = (self.train_ds[0][0].shape[0], *self.crop_size)
             
         if stage == 'test' or stage is None:
             self.test_ds  = DeblurDataset(self.valid_files, size='auto', stats=self.stats)
-            self.dims     = getattr(self, 'dims', self.test_ds[0][0].shape)
+            self.dims     = getattr(self, 'dims', 
+                                    (self.test_ds[0][0].shape[0], *self.crop_size))
             
     def train_dataloader(self):
         return DataLoader(self.train_ds, batch_size=self.batch_size, shuffle=True, num_workers=8, pin_memory=True)
@@ -178,10 +179,13 @@ class DeblurDataModule(pl.LightningDataModule):
       
     def get_transforms(self):
         # TODO: Add RandomAffine, Rotate, Scale, Etc.
-        cropper = K.RandomCrop(size=self.crop_size, pad_if_needed=True, same_on_batch=True)
-        tfms = [cropper, K.RandomHorizontalFlip(), K.RandomVerticalFlip()]
-        tfms.append(K.RandomAffine(degrees=30, scale=(1.0, 1.3)))
-        valid_transforms = [cropper]
+        if self.size == self.crop_size: 
+            cropper = []
+        else:
+            cropper = [K.RandomCrop(size=self.crop_size, pad_if_needed=True, same_on_batch=True)]
+        tfms = cropper + [K.RandomHorizontalFlip(), K.RandomVerticalFlip(),
+                          K.RandomAffine(degrees=30, scale=(1.0, 1.3))]
+        valid_transforms = cropper
         return tfms, valid_transforms
     
     def set_size(self, size):

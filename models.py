@@ -27,6 +27,7 @@ class DeblurModelBase(pl.LightningModule):
         self.hparams['dataset_name']            = data_module.name if data_module else "Data"
         self.hparams['dataset_train_size']      = len(data_module.train_files) if data_module else 0
         self.hparams['dataset_valid_size']      = len(data_module.valid_files) if data_module else 0
+        self.hparams['max_epochs']              = args['max_epochs']
         self.hparams['crop_size']               = repr(self.data_module.crop_size)
         self.hparams['exp_name']                = self.model_name + '_' + (data_module.name if data_module else "") \
                                                   + '_' + args.get('tag', '')
