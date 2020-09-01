@@ -65,7 +65,7 @@ def main(args):
     logger.log_hyperparams(params=model.hparams,
                            metrics={"PSNR":0.0, "SSIM": 0.0, "val_loss":0.0,
                                     "epoch_test_PSNR":0.0, "epoch_test_SSIM":0.0})
-    figure = data_module.show_batch(4)
+    figure = data_module.show_batch(1)
     plt.savefig(os.path.join(logger.log_dir, 'one_batch.png'))
     logger.experiment.add_figure(tag=f"{4} batches of training data", figure=figure, global_step=0)
     
