@@ -6,7 +6,7 @@ rm -rf experiments/EDSR_levin_local_test
 echo "---- DONE ----"
 echo ""
 
-python main.py --model_name edsr --n_colors 1 --batch_size 2 --max_epochs 2 --dataset levin --n_feats 16 --n_resblocks 4 --tag local_test --lr_decay_every_n_epochs 1 --lr_decay_factor 0.5
+python main.py --model_name edsr --n_colors 1 --batch_size 2 --max_epochs 2 --dataset levin --n_feats 16 --n_resblocks 4 --tag local_test --lr_decay_every_n_epochs 1 --lr_decay_factor 0.5 --crop_size 128 128
 
 echo ""
 echo ""

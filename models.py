@@ -6,6 +6,7 @@ from pytorch_lightning.metrics.regression import SSIM
 import time
 from argparse import ArgumentParser
 import torch.nn as nn
+import torch.nn.functional as F
 import os
 from pdb import set_trace
 
@@ -26,6 +27,7 @@ class DeblurModelBase(pl.LightningModule):
         self.hparams['dataset_name']            = data_module.name if data_module else "Data"
         self.hparams['dataset_train_size']      = len(data_module.train_files) if data_module else 0
         self.hparams['dataset_valid_size']      = len(data_module.valid_files) if data_module else 0
+        self.hparams['crop_size']               = repr(self.data_module.crop_size)
         self.hparams['exp_name']                = self.model_name + '_' + (data_module.name if data_module else "") \
                                                   + '_' + args.get('tag', '')
         self.hparams['stats']                   = repr(self.data_module.stats)
@@ -72,8 +74,8 @@ class DeblurModelBase(pl.LightningModule):
     
     def test_step(self, batch, batch_idx):
         # Only apply tfms for valid data if explicitly specified
-        x, y = augment_image_pair(batch, self.v_transforms)
-        out  = self(x)
+        x, y = batch
+        out  = self.predict_batch(x, normalize=False, denormalize=False, predict_patch_wise=False)
         loss = self.loss_func(out, y)
         result = pl.EvalResult(loss)
         log_dict = {'test_loss': loss}
@@ -81,7 +83,7 @@ class DeblurModelBase(pl.LightningModule):
         # Calculate metrics like PSNR, SSIM, etc.
         if self.metrics:
             pred = self.data_module.denormalize_func(out).clamp(0.0, 1.0)
-            y   = self.data_module.denormalize_func(y).clamp(0.0, 1.0)
+            y    = self.data_module.denormalize_func(y).clamp(0.0, 1.0)
             for metric in self.metrics:
                 log_dict[f"test_{metric[1]}"] = metric[0](pred, y)
 
@@ -104,10 +106,10 @@ class DeblurModelBase(pl.LightningModule):
         return result
     
     
-    def predict_image(self, x:torch.Tensor, normalized=False):
+    def predict_image(self, x:torch.Tensor, normalize=True, denormalize=True, predict_patch_wise=True):
         self.eval()
         if type(x) != torch.Tensor:
-            x = torch.tensor(x)
+            x = torch.tensor(x, device=self.device)
         if len(x.shape) == 3:
             if x.shape[2] in (1, 3): # Channel dimension is third
                 x = x.permute(2, 0, 1)
@@ -116,19 +118,45 @@ class DeblurModelBase(pl.LightningModule):
         if x.shape[1] != self.data_module.dims[0]:
             if x.shape[1] == 1:
                 x = torch.stack([x,x,x], dim=1)
+                pred = self.predict_batch(x, normalize, denormalize, predict_patch_wise).squeeze(0)
+                pred = pred.mean(0, keepdim=True)
             elif x.shape[1] == 3:
                 raise Exception("Input is 3 channel image while model was trained for 1 channel images")
-        pred = self.predict_batch(x, normalized).squeeze(0)
+        else:
+            pred = self.predict_batch(x, normalize, denormalize, predict_patch_wise).squeeze(0)
         # set_trace()
         return pred.permute(1, 2, 0)
             
-    def predict_batch(self, x:torch.Tensor, normalized=False):
+    def predict_batch(self, x:torch.Tensor, normalize=True, denormalize=True, predict_patch_wise=True):
         self.eval()
         if type(x) != torch.Tensor:
-           x = torch.tensor(x)
-        if not normalized:
+            x = torch.tensor(x, device=self.device)
+        if normalize:
             x = self.data_module.normalize_func(x)
-        return self.data_module.denormalize_func(self(x)).clamp(0.0, 1.0)
+            
+        if not predict_patch_wise:
+            x = self(x)
+        else:
+            patch_h, patch_w = self.data_module.crop_size
+            input_h, input_w = x.shape[2:]
+            if input_h == patch_h and input_w == patch_w:
+                x = self(x)
+            else:
+                padding_bottom = patch_h - input_h % patch_h
+                padding_right  = patch_w - input_w % patch_w
+                
+                x      = F.pad(x, (0, padding_right, 0, padding_bottom), value=0)
+                h_iter = range(0, x.shape[2], patch_h)
+                w_iter = range(0, x.shape[3], patch_w)
+                
+                for top, left in itertools.product(h_iter, w_iter):
+                    x[:, :, top:top+patch_h, left:left+patch_w] = self(x[:, :, top:top+patch_h, left:left+patch_w])
+                x = x[:, :, :input_h, :input_w]
+            
+        if denormalize:
+            return self.data_module.denormalize_func(x).clamp(0.0, 1.0)
+        else: 
+            return x
         
     def configure_optimizers(self):
         if self.hparams['lr_decay_every_n_epochs'] == 0 or self.hparams['lr_decay_factor'] == 1.0:

@@ -4,7 +4,6 @@ from torchvision.utils import make_grid
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-import glob
 import itertools
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
@@ -58,8 +57,8 @@ class DeblurDataset(Dataset):
 
 
 class DeblurDataModule(pl.LightningDataModule):
-    def __init__(self, train:Path, test:Path=None, batch_size=1, valid_batch_size=1, transforms=None, stats=None, name='GOPRO', 
-                 size=(256,256), train_files=None, valid_files=None, val_pct=0.2):
+    def __init__(self, train:Path, test:Path=None, batch_size=1, valid_batch_size=0, transforms=None, stats=None, name='GOPRO', 
+                 size=0, crop_size=(360, 640), train_files=None, valid_files=None, val_pct=0.2):
         super(DeblurDataModule, self).__init__()
         self.train      = train
         self.test       = test
@@ -84,11 +83,18 @@ class DeblurDataModule(pl.LightningDataModule):
             # in case a few random images have slightly different sizes
             width, height = Image.open(str(self.train_files[0][0])).size
             size = (height, width)
+        self.size  = size
+        
+        try:
+            _ = len(crop_size) == 2
+        except:
+            raise Exception(f" Provided `crop_size` = {crop_size}. It should be a sequence of 2 Integers")
+        self.crop_size = crop_size
+        
         self.transforms       = make_listy(transforms) if transforms is not None else self.get_transforms()[0]
         self.valid_transforms = self.get_transforms()[1]
-        self.size  = size
-        self.stats = stats
         
+        self.stats = stats
         # Adding Transform for Normalizing Data
         tmp_ds = DeblurDataset(self.train_files, self.size)
         if self.stats is None:
@@ -145,7 +151,7 @@ class DeblurDataModule(pl.LightningDataModule):
             test = Path(test)
             test_files = get_image_files(test)
             files = itertools.chain(files, test_files)
-        
+
         files       = list(files)
         train_files =        list(filter(lambda x: "train" in x.as_posix().split('/'), files))
         test_files  =        list(filter(lambda x: "test"  in x.as_posix().split('/'), files))
@@ -165,13 +171,17 @@ class DeblurDataModule(pl.LightningDataModule):
                 test_x.append(train_x.pop(idx))
                 test_y.append(train_y.pop(idx))
 
+        assert len(train_x) == len(train_y)
+        assert len(test_x)  == len(test_y)
+        
         return list(zip(train_x, train_y)), list(zip(test_x, test_y))
       
     def get_transforms(self):
         # TODO: Add RandomAffine, Rotate, Scale, Etc.
-        tfms = [K.RandomHorizontalFlip(), K.RandomVerticalFlip()]
+        cropper = K.RandomCrop(size=self.crop_size, pad_if_needed=True, same_on_batch=True)
+        tfms = [cropper, K.RandomHorizontalFlip(), K.RandomVerticalFlip()]
         tfms.append(K.RandomAffine(degrees=30, scale=(1.0, 1.3)))
-        valid_transforms = []
+        valid_transforms = [cropper]
         return tfms, valid_transforms
     
     def set_size(self, size):

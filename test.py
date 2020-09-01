@@ -92,7 +92,7 @@ if __name__ == '__main__':
     for impath in tqdm(image_list):
         try:
             im = read_image(impath, args['use_gpu'])
-            out = model.predict_image(im, normalized=False)
+            out = model.predict_image(im, normalize=True, denormalize=True, predict_patch_wise=False)
             out = (out.detach().cpu().numpy() * 255).astype(np.uint8)
             if out.shape[2] == 1:
                 out = Image.fromarray(out[:, :, 0], 'L')

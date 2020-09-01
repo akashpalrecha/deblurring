@@ -28,7 +28,8 @@ def main(args):
                   'val_pct': dargs['val_pct'],
                   'size': dargs['size'],
                   'stats': stats_dict.get(dargs['dataset'], None),
-                  'valid_batch_size': dargs['valid_batch_size']}
+                  'valid_batch_size': dargs['valid_batch_size'],
+                  'crop_size': dargs['crop_size']}
     name = dargs['dataset']
     if name == dataset_info:
         name = Path(name).name
@@ -99,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--val_pct', type=float, default=0.2)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--size', nargs="+", type=int, default=0)
+    parser.add_argument('--crop_size', nargs="+", type=int, default=(360, 640))
     parser.add_argument('--tag', type=str, default="")
     parser.add_argument('--no_calc_stats', action='store_true', default=False)
     parser.add_argument('--use_stats', type=str, default="")
