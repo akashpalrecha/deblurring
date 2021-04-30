@@ -1,6 +1,6 @@
 # Deblurring
 
-> Project Shelved until further need / notice
+> **Project Shelved until further need / notice**
 
 Temporary repo to develop new SoTA deblurring methods using deep learninig.
 
